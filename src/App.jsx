@@ -31,7 +31,7 @@ function App() {
   useEffect(() => {
     fetch('http://127.0.0.1:3001/api/auth/me', { credentials: 'include' })
       .then((response) => response.ok ? response.json() : null)
-      .then((result) => { if (result?.user) setAuthUser(result.user) })
+      .then((result) => { if (result?.user) { setAuthUser(result.user); setAuthRequired(false) } })
       .catch(() => {})
   }, [])
   useEffect(() => {
@@ -100,6 +100,7 @@ function App() {
         const result = await response.json()
         if (!response.ok) { overlay.querySelector('.auth-error').textContent = result.error || 'No se pudo iniciar sesión'; return }
         setAuthUser(result.user)
+        setAuthRequired(false)
         close()
       })
     }
@@ -184,7 +185,7 @@ function App() {
       handlers.forEach(({ card, handler }) => card.removeEventListener('click', handler))
       confirmButton?.removeEventListener('click', confirmHandler, true)
     }
-  }, [activeTab, selectedPitch, selectedDate, selectedTime])
+  }, [activeTab, selectedPitch, selectedDate, selectedTime, authUser])
 
   return (
     <div className="app-shell">

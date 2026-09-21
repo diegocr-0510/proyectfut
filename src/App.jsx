@@ -33,6 +33,39 @@ function App() {
   useEffect(() => {
     const loginButton = document.querySelector('.login-button')
     if (!loginButton) return undefined
+    const accountActions = document.querySelector('.account-actions')
+    const avatar = accountActions?.querySelector('.avatar')
+    let logoutButton = accountActions?.querySelector('.logout-button')
+    let userSummary = accountActions?.querySelector('.user-summary')
+    const initials = authUser?.full_name?.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()
+    if (authUser && accountActions && avatar) {
+      loginButton.style.display = 'none'
+      avatar.textContent = initials || 'U'
+      avatar.title = authUser.email
+      if (!userSummary) {
+        userSummary = document.createElement('div')
+        userSummary.className = 'user-summary'
+        accountActions.insertBefore(userSummary, avatar)
+      }
+      userSummary.innerHTML = `<strong>${authUser.full_name}</strong><span>${authUser.email}</span>`
+      if (!logoutButton) {
+        logoutButton = document.createElement('button')
+        logoutButton.className = 'logout-button'
+        logoutButton.textContent = 'Salir'
+        logoutButton.setAttribute('aria-label', 'Cerrar sesión')
+        accountActions.insertBefore(logoutButton, avatar)
+      }
+    } else if (accountActions && avatar) {
+      loginButton.style.display = ''
+      avatar.textContent = 'JD'
+      avatar.removeAttribute('title')
+      userSummary?.remove()
+      logoutButton?.remove()
+    }
+    const logoutHandler = () => {
+      fetch('http://127.0.0.1:3001/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => setAuthUser(null))
+    }
+    logoutButton?.addEventListener('click', logoutHandler)
     const openLogin = () => {
       if (authUser) {
         fetch('http://127.0.0.1:3001/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => setAuthUser(null))
@@ -67,7 +100,10 @@ function App() {
       })
     }
     loginButton.addEventListener('click', openLogin)
-    return () => loginButton.removeEventListener('click', openLogin)
+    return () => {
+      loginButton.removeEventListener('click', openLogin)
+      logoutButton?.removeEventListener('click', logoutHandler)
+    }
   }, [authUser])
   useEffect(() => {
     if (!confirmationNotice) return undefined

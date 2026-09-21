@@ -82,6 +82,13 @@ const requireSession = async (request, response, next) => {
   }
 }
 
+const requireRole = (...roles) => async (request, response, next) => {
+  await requireSession(request, response, () => {})
+  if (!request.user) return
+  if (!roles.includes(request.user.role)) return response.status(403).json({ error: 'Insufficient permissions' })
+  return next()
+}
+
 app.post('/api/auth/register', async (request, response, next) => {
   const { email, password, fullName } = request.body
   if (!email || !password || !fullName || password.length < 8) {
@@ -130,6 +137,62 @@ app.post('/api/auth/logout', async (request, response, next) => {
     if (sessionId) await pool.query('DELETE FROM sessions WHERE id = $1', [sessionId])
     clearSessionCookie(response)
     return response.status(204).end()
+  } catch (error) {
+    return next(error)
+  }
+})
+
+app.get('/api/admin/users', requireRole('platform_admin'), async (_request, response, next) => {
+  try {
+    const result = await pool.query('SELECT id, email, full_name, role, disabled_at, created_at FROM users ORDER BY created_at DESC')
+    return response.json({ users: result.rows })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+app.post('/api/admin/users', requireRole('platform_admin'), async (request, response, next) => {
+  const { email, password, fullName, role } = request.body
+  if (!email || !password || !fullName || !['user', 'venue_admin', 'platform_admin'].includes(role) || password.length < 8) {
+    return response.status(400).json({ error: 'Name, email, password and a valid role are required' })
+  }
+  try {
+    const passwordHash = await bcrypt.hash(password, 12)
+    const result = await pool.query(
+      `INSERT INTO users (email, password_hash, full_name, role)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, email, full_name, role`,
+      [String(email).trim().toLowerCase(), passwordHash, String(fullName).trim(), role],
+    )
+    return response.status(201).json({ user: result.rows[0] })
+  } catch (error) {
+    if (error.code === '23505') return response.status(409).json({ error: 'This email is already registered' })
+    return next(error)
+  }
+})
+
+app.get('/api/admin/venues', requireRole('platform_admin'), async (_request, response, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT v.id, v.name, v.address, v.is_approved, v.owner_user_id,
+              u.full_name AS owner_name, COUNT(p.id)::int AS pitch_count
+       FROM venues v LEFT JOIN users u ON u.id = v.owner_user_id
+       LEFT JOIN pitches p ON p.venue_id = v.id
+       GROUP BY v.id, u.full_name ORDER BY v.created_at DESC`,
+    )
+    return response.json({ venues: result.rows })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+app.get('/api/venue/overview', requireRole('venue_admin', 'platform_admin'), async (request, response, next) => {
+  try {
+    const query = request.user.role === 'platform_admin'
+      ? 'SELECT v.id, v.name, v.address, v.is_approved, COUNT(p.id)::int AS pitch_count FROM venues v LEFT JOIN pitches p ON p.venue_id = v.id GROUP BY v.id ORDER BY v.name'
+      : 'SELECT v.id, v.name, v.address, v.is_approved, COUNT(p.id)::int AS pitch_count FROM venues v LEFT JOIN pitches p ON p.venue_id = v.id WHERE v.owner_user_id = $1 GROUP BY v.id ORDER BY v.name'
+    const result = await pool.query(query, request.user.role === 'platform_admin' ? [] : [request.user.id])
+    return response.json({ venues: result.rows })
   } catch (error) {
     return next(error)
   }

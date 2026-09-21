@@ -20,10 +20,14 @@ function App() {
   const [confirmationNotice, setConfirmationNotice] = useState(null)
   const [unavailableTimes, setUnavailableTimes] = useState([])
   const [authUser, setAuthUser] = useState(null)
+  const [authRequired, setAuthRequired] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
-  const choosePitch = (pitch) => { setSelectedPitch(pitch); setSelectedTime(''); setConfirmed(false); setReservationError(''); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const choosePitch = (pitch) => {
+    if (!authUser) { setAuthRequired(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
+    setSelectedPitch(pitch); setAuthRequired(false); setSelectedTime(''); setConfirmed(false); setReservationError(''); window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
   const closePitch = () => { setSelectedPitch(null); setSelectedTime(''); setConfirmed(false); setReservationError('') }
-  const selectTab = (tab) => { setActiveTab(tab); setSelectedPitch(null); setShowMenu(false) }
+  const selectTab = (tab) => { setActiveTab(tab); setSelectedPitch(null); setAuthRequired(false); setShowMenu(false) }
   useEffect(() => {
     fetch('http://127.0.0.1:3001/api/auth/me', { credentials: 'include' })
       .then((response) => response.ok ? response.json() : null)
@@ -184,6 +188,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      {authRequired && activeTab === 'explore' && <main className="access-required"><div className="empty-icon"><ShieldCheck size={30} /></div><span className="eyebrow">Cuenta requerida</span><h1>Ingresá para ver horarios</h1><p>Creá una cuenta o iniciá sesión para consultar la disponibilidad y reservar una cancha.</p><button className="primary-button" onClick={() => document.querySelector('.login-button')?.click()}>Ingresar o crear cuenta <ArrowRight size={17} /></button><button className="back-link access-back" onClick={() => setAuthRequired(false)}><ArrowLeft size={16} /> Volver a explorar</button></main>}
       <header className="topbar"><button className="brand" onClick={() => { selectTab('explore'); closePitch() }}><span className="brand-mark"><Grid2X2 size={18} strokeWidth={3} /></span><span>Punto<span>Cancha</span></span></button><nav className="desktop-nav"><button className={activeTab === 'explore' ? 'active' : ''} onClick={() => selectTab('explore')}>Explorar</button><button className={activeTab === 'bookings' ? 'active' : ''} onClick={() => selectTab('bookings')}>Mis reservas</button><button className={activeTab === 'admin' ? 'active' : ''} onClick={() => selectTab('admin')}>Gestionar cancha</button></nav><div className="account-actions"><button className="icon-button mobile-only" aria-label="Abrir menú" onClick={() => setShowMenu(!showMenu)}><Menu size={20} /></button><button className="login-button"><UserRound size={17} /> Ingresar</button><button className="avatar">JD</button></div></header>
       {showMenu && <div className="mobile-menu"><button onClick={() => selectTab('explore')}>Explorar canchas</button><button onClick={() => selectTab('bookings')}>Mis reservas</button><button onClick={() => selectTab('admin')}>Gestionar cancha</button></div>}
       {confirmationNotice && activeTab === 'explore' && !selectedPitch && <div className="reservation-success-banner" role="status"><div className="reservation-success-icon"><Check size={16} /></div><div><strong>Reserva confirmada</strong><span>{confirmationNotice.pitch} · {confirmationNotice.date} de septiembre a las {confirmationNotice.time}</span></div><button aria-label="Cerrar confirmación" onClick={() => setConfirmationNotice(null)}>×</button></div>}

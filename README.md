@@ -60,3 +60,18 @@ API health: `http://127.0.0.1:3001/api/health`
 - `server/`: API Express y sesiones.
 - `db/`: esquema y datos iniciales de PostgreSQL.
 - `SECURITY.md`: política de seguridad y decisiones de sesión.
+
+## Roles administrativos
+
+- `user`: consulta canchas y crea sus propias reservas.
+- `venue_admin`: administra las sedes que tenga asignadas mediante `venues.owner_user_id`.
+- `platform_admin`: dueño de la aplicación; administra usuarios, sedes y asignaciones.
+
+Para convertir una cuenta registrada en el primer superusuario, ejecuta después de crearla:
+
+```bash
+/Library/PostgreSQL/18/bin/psql -h 127.0.0.1 -U postgres -d puntocancha \
+	-c "UPDATE users SET role = 'platform_admin' WHERE email = 'tu-correo@example.com';"
+```
+
+Las rutas administrativas requieren una sesión válida y validan el rol en el servidor. Una persona sin sesión ve una pantalla de acceso antes de entrar al detalle y horarios de una cancha.
